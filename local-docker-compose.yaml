@@ -1,0 +1,36 @@
+version: '3'
+services:
+  db:
+    image: mysql:latest
+    platform: linux/amd64
+    container_name: mysql-container
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: demo
+      TZ: "Asia/Tokyo"
+    networks:
+      - mynetwork
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+  compass-test:
+    image: compass-test:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-container:3306/demo
+    ports:
+      - "8080:8080"
+    networks:
+      - mynetwork
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  mynetwork:

@@ -1,0 +1,109 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+buildscript {
+    ext {
+        springBootVersion = '3.2.1'
+    }
+    dependencies {
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.17.6"
+    }
+}
+
+plugins {
+    id 'org.springframework.boot' version "${springBootVersion}"
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.jetbrains.kotlin.jvm' version '1.9.21'
+    id 'org.jetbrains.kotlin.plugin.spring' version '1.9.21'
+    id "org.jlleitschuh.gradle.ktlint" version "10.2.0"
+    id 'jacoco'
+}
+apply plugin: 'docker-compose'
+
+group = 'com.compass.test'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '17'
+}
+
+jar {
+    enabled = false
+}
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    integrationTest {
+        java.srcDirs 'src/integrationTest/kotlin'
+        compileClasspath += main.output + test.output
+        runtimeClasspath += main.output + test.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+tasks.register('integrationTest', Test) {
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform() {
+        includeTags 'integration'
+    }
+}
+
+dockerCompose.isRequiredBy(integrationTest)
+
+dependencies {
+    implementation(
+            'org.springframework.boot:spring-boot-starter-webflux',
+            'org.springframework.boot:spring-boot-starter-validation',
+            'org.springframework.boot:spring-boot-starter-data-jpa',
+            'com.fasterxml.jackson.module:jackson-module-kotlin',
+            'io.projectreactor.kotlin:reactor-kotlin-extensions',
+            'org.jetbrains.kotlin:kotlin-reflect',
+            'org.jetbrains.kotlinx:kotlinx-coroutines-reactor',
+            'org.mybatis:mybatis:3.5.15',
+            'org.mybatis:mybatis-spring:3.0.3',
+            'com.mysql:mysql-connector-j:8.2.0',
+    )
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+    testImplementation(
+            'org.jetbrains.kotlin:kotlin-test',
+            'org.springframework.boot:spring-boot-starter-test',
+            'io.projectreactor:reactor-test',
+            'org.spekframework.spek2:spek-dsl-jvm:2.0.19',
+            'org.spekframework.spek2:spek-runner-junit5:2.0.19',
+            'io.rest-assured:rest-assured:5.4.0',
+    )
+}
+
+jacoco {
+    toolVersion = "0.8.9"
+    reportsDirectory = file("$buildDir/reports/jacoco")
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
+    }
+}
+
+tasks.withType(KotlinCompile) {
+    kotlinOptions {
+        freeCompilerArgs += '-Xjsr305=strict'
+        jvmTarget = '17'
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform() {
+        includeEngines 'spek2'
+    }
+    finalizedBy(jacocoTestReport)
+}
